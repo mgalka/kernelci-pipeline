@@ -24,7 +24,7 @@ def _run_trigger(args, build_config, db):
     node_list = db.get_nodes_by_commit_hash(head_commit)
     if node_list:
         print(f"Node exists with the latest git commit {head_commit}")
-        return
+        # return
     sys.stdout.flush()
 
     revision = {
