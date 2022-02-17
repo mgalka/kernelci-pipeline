@@ -39,6 +39,8 @@ services:
       - '--settings=/home/kernelci/config/kernelci.conf'
       - 'run'
       - '--storage-url=${STORAGE_URL:-http://172.17.0.1:8002/}'
+      - '--ssh-host=staging.kernelci.org'
+      - '--ssh-port=9022'
 
   trigger:
     <<: *base-service
