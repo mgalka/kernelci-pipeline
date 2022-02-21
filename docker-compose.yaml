@@ -53,9 +53,12 @@ services:
     command:
       - '/usr/bin/env'
       - 'python3'
-      - '/home/kernelci/pipeline/kcidb.py'
+      - '/home/kernelci/pipeline/send_kcidb.py'
       - '--settings=/home/kernelci/config/kernelci.conf'
       - 'run'
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/home/kernelci/data/kcidb/kernelci-production-admin.json
+
 
   test_report:
     <<: *base-service
