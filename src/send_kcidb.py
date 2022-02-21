@@ -12,11 +12,16 @@ import kernelci
 import kernelci.data
 from kernelci.config import load
 from kernelci.cli import Args, Command, parse_opts
+from kcidb import Client
 
 
 class cmd_run(Command):
     help = "Listen for events and send them to KCDIB"
     args = [Args.db_config]
+    project_id = os.getenv('PROJECT_ID')
+    topic_name = os.getenv('TOPIC_NAME')
+    client = Client(project_id=project_id,
+                    topic_name=topic_name)
 
     def __call__(self, configs, args):
         db_config = configs['db_configs'][args.db_config]
@@ -36,6 +41,9 @@ class cmd_run(Command):
                     continue
                 print(f"Printing node for {node}")
                 sys.stdout.flush()
+                print("Submitting node to KCIDB")
+                sys.stdout.flush()
+                self.send_revision(node)
 
             sys.stdout.flush()
 
@@ -45,6 +53,30 @@ class cmd_run(Command):
             db.unsubscribe(sub_id)
 
         sys.stdout.flush()
+
+    def get_revision(self, node):
+        return {
+            "builds": [],
+            "checkouts": [
+                {
+                    "id": f"kernelci:{node['_id']}",
+                    "origin": "kernelci",
+                    "tree_name": node["revision"]["tree"],
+                    "git_repository_url": node["revision"]["url"],
+                    "git_commit_hash": node["revision"]["commit"],
+                    "git_repository_branch": node["revision"]["branch"],
+                    "start_time": node["created"],
+                },
+            ],
+            "tests": [],
+            "version": {
+                "major": 4,
+                "minor": 0
+            }
+        }
+
+    def send_revision(self, node):
+        self.client.submit(self.get_revision(node))
 
 
 if __name__ == '__main__':
