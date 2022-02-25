@@ -55,8 +55,7 @@ class cmd_run(Command):
         {
             'name': '--poll-period',
             'type': int,
-            'help': "Polling period in seconds, disabled by default",
-            'default': 0,
+            'help': "Polling period in seconds, disabled when set to 0",
         },
     ]
 
