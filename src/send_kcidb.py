@@ -25,62 +25,64 @@ class cmd_run(Command):
         api_token = os.getenv('API_TOKEN')
         db = kernelci.data.get_db(db_config, api_token)
 
-        project_id = os.getenv('KCIDB_PROJECT_ID')
+        if not os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
+            print("No GOOGLE_APPLICATION_CREDENTIALS environment variable")
+            return False
+
         topic_name = os.getenv('KCIDB_TOPIC_NAME')
-        google_credential = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-        client = None
+        if not topic_name:
+            print("No KCIDB_TOPIC_NAME environment variable")
+            return False
 
-        if topic_name and project_id:
-            client = Client(project_id=project_id,
-                            topic_name=topic_name)
+        project_id = os.getenv('KCIDB_PROJECT_ID')
+        if not project_id:
+            print("No KCIDB_PROJECT_ID environment variable")
+            return False
 
+        client = Client(project_id=project_id, topic_name=topic_name)
+        if client is None:
+            print("Failed to create client connection to KCIDB")
+            return False
+
+        sub_id = db.subscribe('node')
         print("Listening for events... ")
         print("Press Ctrl-C to stop.")
         sys.stdout.flush()
-        if not client or not google_credential:
-            print("Aborting due to missing configuration")
-            sys.stdout.flush()
-            return
 
-        sub_id = db.subscribe('node')
+        tz_utc = datetime.timezone(datetime.timedelta(hours=0))
+
         try:
             while True:
                 event = db.get_event(sub_id)
                 node = db.get_node_from_event(event)
-                if node['name'] != 'checkout':
+                if node['name'] != 'checkout' or node['status'] is not True:
                     continue
-                print(f"Printing node for {node}")
-                sys.stdout.flush()
-                print("Submitting node to KCIDB")
+
+                print(f"Submitting node to KCIDB: {node['_id']}")
                 sys.stdout.flush()
 
                 created_time = datetime.datetime.fromisoformat(node["created"])
-                tz_utc = datetime.timezone(datetime.timedelta(hours=0))
                 if not created_time.tzinfo:
-                    created_time = datetime.datetime.\
-                        fromtimestamp(created_time.timestamp(), tz=tz_utc)
-                start_time = created_time.isoformat()
+                    created_time = datetime.datetime.fromtimestamp(
+                        created_time.timestamp(), tz=tz_utc)
                 revision = {
-                        "builds": [],
-                        "checkouts": [
-                            {
-                                "id": f"kernelci:{node['_id']}",
-                                "origin": "kernelci",
-                                "tree_name": node["revision"]["tree"],
-                                "git_repository_url": node["revision"]["url"],
-                                "git_commit_hash": node["revision"]["commit"],
-                                "git_repository_branch":
-                                    node["revision"]["branch"],
-                                "start_time": start_time,
-                                "patchset_hash": "",
-                            },
-                        ],
-                        "tests": [],
-                        "version": {
-                            "major": 4,
-                            "minor": 0
-                        }
+                    "builds": [],
+                    "checkouts": [{
+                        "id": f"kernelci:{node['_id']}",
+                        "origin": "kernelci",
+                        "tree_name": node["revision"]["tree"],
+                        "git_repository_url": node["revision"]["url"],
+                        "git_commit_hash": node["revision"]["commit"],
+                        "git_repository_branch": node["revision"]["branch"],
+                        "start_time": created_time.isoformat(),
+                        "patchset_hash": "",
+                    }],
+                    "tests": [],
+                    "version": {
+                        "major": 4,
+                        "minor": 0
                     }
+                }
                 self.send_revision(client, revision)
 
             sys.stdout.flush()
@@ -91,6 +93,8 @@ class cmd_run(Command):
             db.unsubscribe(sub_id)
 
         sys.stdout.flush()
+
+        return True
 
     def send_revision(self, client, revision):
         if self.validate_revision(revision):
