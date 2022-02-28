@@ -115,7 +115,7 @@ scp \
                 if node['name'] != 'checkout':
                     continue
 
-                if node['status'] is not None:
+                if node['status'] != "pending":
                     continue
 
                 build_config = self._find_build_config(node)
