@@ -8,6 +8,7 @@
 import os
 import sys
 import tempfile
+import json
 
 import kernelci
 import kernelci.config
@@ -38,10 +39,17 @@ class FstestsRunner:
             'revision': tarball_node['revision'],
             'path': tarball_node['path'] + [plan_config.name],
         }
-        return self._db.submit({'node': node}, True)[0]
+        try:
+            return self._db.submit({'node': node}, True)[0], \
+                "Node created successfully"
+        except Exception as err:
+            err_msg = json.loads(err.response.content).get("detail")
+            return None, err_msg
 
     def _schedule_job(self, tarball_node, device_config, tmp):
-        node = self._create_node(tarball_node, self._plan)
+        node, msg = self._create_node(tarball_node, self._plan)
+        if not node:
+            return None, msg
         revision = node['revision']
         try:
             params = {
@@ -66,12 +74,15 @@ class FstestsRunner:
             job_result = self._runtime.submit(output_file)
         except Exception as e:
             print(e)
-        return job_result
+        return job_result, "Job scheduled successfully"
 
     def _run_single_job(self, tarball_node, device):
         try:
             tmp = tempfile.TemporaryDirectory(dir=self._output)
-            job = self._schedule_job(tarball_node, device, tmp.name)
+            job, msg = self._schedule_job(tarball_node, device, tmp.name)
+            if not job:
+                print(f"Failed to schedule job for {self._plan.name}. \
+Error: {msg}")
             print("Waiting...")
             job.wait()
             print("...done")
