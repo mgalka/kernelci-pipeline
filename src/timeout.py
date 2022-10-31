@@ -8,7 +8,7 @@
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from time import sleep
 import traceback
 import json
