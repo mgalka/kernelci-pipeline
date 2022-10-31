@@ -11,6 +11,7 @@ import sys
 from datetime import datetime, timedelta
 from time import sleep
 import traceback
+import json
 
 import kernelci
 import kernelci.config
@@ -89,7 +90,13 @@ class Timeout:
             while True:
                 nodes = self._db.get_nodes()
                 for node in nodes:
-                    self._update_timed_out_node(node)
+                    try:
+                        self._update_timed_out_node(node)
+                    except Exception as err:
+                        err_msg = json.loads(
+                            err.response.content
+                        ).get("detail")
+                        self._logger.log_message(logging.ERROR, err_msg)
                 sleep(self._poll_period)
         except KeyboardInterrupt:
             self._logger.log_message(logging.INFO, "Stopping.")
