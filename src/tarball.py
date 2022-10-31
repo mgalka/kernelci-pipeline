@@ -13,6 +13,7 @@ import re
 import sys
 import traceback
 import urllib.parse
+import json
 
 import kernelci
 import kernelci.build
@@ -108,7 +109,7 @@ scp \
             if value
         }
 
-    def _send_node(self, checkout_node, describe, version, tarball):
+    def _update_node(self, checkout_node, describe, version, tarball):
         node = checkout_node.copy()
         node['revision'].update({
             'describe': describe,
@@ -121,7 +122,11 @@ scp \
             },
             'holdoff': str(datetime.utcnow() + timedelta(minutes=10))
         })
-        return self._db.submit({'node': node})
+        try:
+            self._db.submit({'node': node})
+        except Exception as err:
+            err_msg = json.loads(err.response.content).get("detail")
+            self._logger.log_message(logging.ERROR, err_msg)
 
     def run(self):
         sub_id = self._db.subscribe_node_channel(filters={
@@ -147,7 +152,7 @@ scp \
                 )
                 version = self._get_version_from_describe()
                 tarball = self._push_tarball(build_config, describe)
-                self._send_node(checkout_node, describe, version, tarball)
+                self._update_node(checkout_node, describe, version, tarball)
         except KeyboardInterrupt:
             self._logger.log_message(logging.INFO, "Stopping.")
         except Exception:
