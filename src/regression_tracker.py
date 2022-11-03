@@ -64,10 +64,18 @@ class RegressionTracker:
                     self._create_regression(node)
                     self._logger.log_message(logging.INFO, f"Created \
 regression for node id: {node['_id']}")
+                    # Test regressions
+                    print("Changing result to fail", flush=True)
+                    node['result'] = 'fail'
+                    self._db.submit({'node': node})
                 elif resp and node['result'] == 'fail':
                     self._add_regression_data(resp[0], node)
                     self._logger.log_message(logging.INFO, f"Added new \
 regression data for node id: {node['_id']}")
+                    # Test regressions
+                    print("Changing result back to pass", flush=True)
+                    node['result'] = 'pass'
+                    self._db.submit({'node': node})
                 sys.stdout.flush()
         except KeyboardInterrupt as err:
             self._logger.log_message(logging.INFO, "Stopping.")
