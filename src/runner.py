@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 import traceback
+import json
 
 import kernelci
 import kernelci.config
@@ -46,7 +47,12 @@ class Runner:
             'artifacts': checkout_node['artifacts'],
             'revision': checkout_node['revision'],
         }
-        return self._db.submit({'node': node})[0]
+        try:
+            return self._db.submit({'node': node})[0], \
+                "Node created successfully"
+        except Exception as err:
+            err_msg = json.loads(err.response.content).get("detail")
+            return None, err_msg
 
     def _generate_job(self, node, plan_config, device_config, tmp):
         self._logger.log_message(logging.INFO, "Generating job")
@@ -78,7 +84,9 @@ class Runner:
         ))
 
         self._logger.log_message(logging.INFO, "Creating test node")
-        node = self._create_node(checkout_node, plan)
+        node, msg = self._create_node(checkout_node, plan)
+        if not node:
+            return None, msg
 
         tmp = tempfile.TemporaryDirectory(dir=self._output)
         output_file = self._generate_job(node, plan, device, tmp.name)
@@ -130,6 +138,12 @@ class RunnerLoop(Runner):
                 job, tmp = self._schedule_test(
                     checkout_node, self._plan, device
                 )
+
+                if not job:
+                    self._logger.log_message(logging.ERROR, f"Failed to \
+schedule job for {self._plan.name}. Error: {tmp}")
+                    continue
+
                 if self._runtime.config.lab_type == 'shell':
                     self._job_tmp_dirs[job] = tmp
                 self._cleanup_paths()
@@ -149,6 +163,10 @@ class RunnerSingleJob(Runner):
     def _run_single_job(self, checkout_node, plan, device):
         try:
             job, tmp = self._schedule_test(checkout_node, plan, device)
+            if not job and not tmp:
+                self._logger.log_message(logging.ERROR, f"Failed to \
+schedule job for {plan.name}")
+                return False
             if self._runtime.config.lab_type == 'shell':
                 self._logger.log_message(logging.INFO, "Waiting...")
                 job.wait()
