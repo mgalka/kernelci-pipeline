@@ -124,6 +124,8 @@ class TestReport:
         try:
             while True:
                 root_node = self._db.receive_node(sub_id)
+                if root_node['result'] == 'incomplete':
+                    continue
                 content, subject = self._get_report(root_node)
                 self._dump_report(content)
                 self._send_report(subject, content)
